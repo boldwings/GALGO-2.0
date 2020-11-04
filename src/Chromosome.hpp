@@ -67,6 +67,8 @@ public:
 
    int getbits();
    void putbits(int bits);
+   std::string getchr();
+   void putchr(std::string);
 
 private:
    std::vector<T> param;                     // estimated parameter(s)
@@ -255,6 +257,18 @@ template <typename T>
 inline void Chromosome<T>::putbits(int bits)
 {
    chr = std::bitset<32>(bits).to_string();
+}
+
+template <typename T>
+inline std::string Chromosome<T>::getchr()
+{
+   return chr;
+}
+
+template <typename T>
+inline void Chromosome<T>::putchr(std::string c)
+{
+   chr = c;
 }
 /*-------------------------------------------------------------------------------------------------*/
       

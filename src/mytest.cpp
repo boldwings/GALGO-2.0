@@ -21,20 +21,49 @@ class MyObjective
 public:
    // objective function example : Rosenbrock function
    // minimizing f(x,y) = (1 - x)^2 + 100 * (y - x^2)^2
-   static std::vector<T> Objective(const std::vector<T>& x)
+   // static std::vector<T> Objective(const std::vector<T>& x)
+   // {
+   //    count++;
+   //    t0 = rdtsc();
+   //    // T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+   //    T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
+   //    // T obj2 = -(pow(1-x[0],2)+ pow(x[1]-1,2));
+   //    // T obj3 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+   //    // T obj4 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+   //    // T obj5 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+   //    t1 = rdtsc();
+   //    dur += t1 - t0;
+   //    // return {obj1, obj2, obj3, obj4, obj5};
+   //    return {obj};
+   // }
+
+   static __m256 Objective(__m256 x_vector, __m256 y_vector)
    {
       count++;
       t0 = rdtsc();
-      // T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
-      // T obj2 = -(pow(1-x[0],2)+ pow(x[1]-1,2));
-      // T obj3 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      // T obj4 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      // T obj5 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+      // __m256 x_vector = v[0];
+      // __m256 y_vector = v[1];
+      float c1 = -45.0;
+      float c2 = 15.0;
+      __m256 c1_vector = _mm256_broadcast_ss(&c1);
+      __m256 c2_vector = _mm256_broadcast_ss(&c2);
+
+      __m256 sum1 = _mm256_add_ps(x_vector, y_vector);  // x + y
+      __m256 sqrt1 = _mm256_sqrt_ps(sum1);              // sqrt(x + y)
+      __m256 mul_1 = _mm256_mul_ps(c1_vector, sqrt1);
+
+      __m256 sq_x = _mm256_mul_ps(x_vector, x_vector);  // x^2
+      __m256 sq_y = _mm256_mul_ps(y_vector, y_vector);  // y^2
+      __m256 sq_xy = _mm256_add_ps(sq_x, sq_y);                       // x^2 + y^2
+      __m256 div_xy = _mm256_div_ps(sum1, sq_xy);       // (x + y) / (x^2 + y^2)
+      __m256 mul_2 = _mm256_mul_ps(c2_vector, div_xy);  // 15 * (x + y) / (x^2 + y^2)
+   
+      __m256 result = _mm256_mul_ps(mul_1, mul_2);
+      // T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
       t1 = rdtsc();
       dur += t1 - t0;
       // return {obj1, obj2, obj3, obj4, obj5};
-      return {obj};
+      return result;
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
 };
@@ -64,7 +93,7 @@ int main(int argc, char** argv)
    // initiliazing genetic algorithm
    // num = atoi(argv[1]);
    std::cout << "num is " << num << std::endl;
-   galgo::GeneticAlgorithm<float> ga(MyObjective<float>::Objective,2000,100,true,par1,par2);
+   galgo::GeneticAlgorithm<float> ga(MyObjective::Objective,2000,100,true,par1,par2);
 
    // setting constraints
    // ga.Constraint = MyConstraint;

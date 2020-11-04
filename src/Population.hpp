@@ -4,6 +4,7 @@
 
 #ifndef POPULATION_HPP
 #define POPULATION_HPP
+// #include <immintrin.h>
 /**********************************************************************/
 int count_crossover = 0;
 int count_mutation = 0;
@@ -48,7 +49,9 @@ public:
    typename std::vector<CHR<T>>::const_iterator cend() const;  
    // select element at position pos in current population and copy it into mating population
    void select(int pos);
-   // set all fitness to positive values 
+   // evaluation for the popluation
+   void calFitness_simd(std::vector<CHR<T>>& pop, int start, int end);
+   // set all fitness to positive values
    void adjustFitness();
    // compute fitness sum of current population
    T getSumFitness() const;
@@ -114,7 +117,7 @@ void Population<T>::creation()
    if (!ptr->initialSet.empty()) {
       curpop[0] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[0]->initialize();
-      curpop[0]->evaluate();
+      // curpop[0]->evaluate();
       start++;
    }
    // getting the rest
@@ -124,8 +127,9 @@ void Population<T>::creation()
    for (int i = start; i < ptr->popsize; ++i) {
       curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[i]->create();
-      curpop[i]->evaluate();
+      // curpop[i]->evaluate();
    }
+   calFitness_simd(curpop, 0, ptr->popsize);
    // updating population
    this->updating();
 }
@@ -195,9 +199,10 @@ void Population<T>::recombination()
       count_mutation += 2;
       dur_mutation += t1 - t0;
       // evaluating new chromosomes
-      newpop[i]->evaluate();
-      newpop[i+1]->evaluate();
+      // newpop[i]->evaluate();
+      // newpop[i+1]->evaluate();
    } 
+   calFitness_simd(newpop, ptr->elitpop, nbrcrov);
    // ptr->Mutation_simd(newpop, ptr->elitpop, nbrcrov);
    // for (int i = ptr->elitpop; i < nbrcrov; i++) {
    //    newpop[i]->evaluate();
@@ -223,8 +228,9 @@ void Population<T>::completion()
       count_mutation += 1;
       dur_mutation += t1 - t0;
       // evaluating chromosome
-      newpop[i]->evaluate();
+      // newpop[i]->evaluate();
    }
+   calFitness_simd(newpop, nbrcrov, ptr->popsize);
 }
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -324,6 +330,42 @@ inline void Population<T>::select(int pos)
 
    matpop[matidx] = curpop[pos];
    matidx++;
+}
+
+/*-------------------------------------------------------------------------------------------------*/
+typedef union {
+    __m256 v;
+    float a[8];
+} eval_union;
+
+
+template <typename T>
+void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end) 
+{  
+   for (int i = start; i < end; i = i + 8) {
+      std::vector<float> x;
+      std::vector<float> y;
+      for (int j = i; j < i + 8; j++) {
+         const auto &p1 = ptr->param[0];
+         const auto &p2 = ptr->param[1];
+         // decoding chromosome: converting chromosome string into a real value
+         std::string crr_s = pop[j]->getchr();
+         x.push_back(p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
+         y.push_back(p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+      }
+      __m256 x_vector = _mm256_loadu_ps(x.data());
+      __m256 y_vector = _mm256_loadu_ps(y.data());
+      __m256 v[2];
+      v[0] = x_vector;
+      v[1] = y_vector;
+      __m256 result = ptr->Objective(x_vector, y_vector);
+
+      eval_union r;
+      r.v = result;
+      for (int j = i; j < i + 8; j++) {
+         pop[j]->fitness = r.a[j - i];
+      }
+   }
 }
 
 /*-------------------------------------------------------------------------------------------------*/
