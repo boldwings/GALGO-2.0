@@ -4,7 +4,8 @@
 
 #ifndef CHROMOSOME_HPP
 #define CHROMOSOME_HPP
-
+#include <string>
+#include <bitset>
 namespace galgo {
 
 //=================================================================================================
@@ -63,6 +64,9 @@ public:
    const std::vector<T>& lowerBound() const;
    // return upper bound(s)
    const std::vector<T>& upperBound() const;
+
+   int getbits();
+   void putbits(int bits);
 
 private:
    std::vector<T> param;                     // estimated parameter(s)
@@ -240,6 +244,18 @@ inline void Chromosome<T>::setBit(char bit, int pos)
    std::cout << chr << "\n";
 }
 
+template <typename T>
+inline int Chromosome<T>::getbits()
+{
+   int bits = std::bitset<32>(chr.c_str()).to_ulong();
+   return bits;
+}
+
+template <typename T>
+inline void Chromosome<T>::putbits(int bits)
+{
+   chr = std::bitset<32>(bits).to_string();
+}
 /*-------------------------------------------------------------------------------------------------*/
       
 // flip an existing chromosome bit

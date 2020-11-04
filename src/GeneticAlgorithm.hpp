@@ -39,6 +39,8 @@ public:
    void (*CrossOver)(const Population<T>&, CHR<T>&, CHR<T>&) = P1XO;
    // mutation method initialized to single-point mutation 
    void (*Mutation)(CHR<T>&) = SPM;  
+   // mutation method for multiple mutation 
+   void (*Mutation_simd)(std::vector<CHR<T>>&, int start, int end) = SPM_simd;  
    // adaptation to constraint(s) method                                        
    void (*Adaptation)(Population<T>&) = nullptr; 
    // constraint(s)                               
@@ -54,7 +56,7 @@ public:
    int tntsize = 10;  // tournament size
    int genstep = 10;  // generation step for outputting results
    int precision = 5; // precision for outputting results
-
+   bool output;   // control if results must be outputted
    // constructor
    template <int...N>
    GeneticAlgorithm(Func<T> objective, int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
@@ -69,7 +71,7 @@ private:
    int nogen = 0; // numero of generation
    int nbparam;   // number of parameters to be estimated
    int popsize;   // population size
-   bool output;   // control if results must be outputted
+   
 
    // end of recursion for initializing parameter(s) data
    template <int I = 0, int...N>

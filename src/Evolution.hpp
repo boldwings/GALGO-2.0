@@ -4,7 +4,7 @@
 
 #ifndef EVOLUTION_HPP
 #define EVOLUTION_HPP
-
+#include <immintrin.h>
 // In this header, the user can define his own selection, cross-over, mutation and adaptation to 
 // constraint(s) methods by respecting the function declaration template
 
@@ -13,7 +13,29 @@
 // SELECTION METHODS
 
 /*-------------------------------------------------------------------------------------------------*/
+static inline uint64_t rotl(const uint64_t x, int k) {
+	return (x << k) | (x >> (64 - k));
+}
 
+
+static uint64_t s[4];
+
+float next_256p(void) {
+	const uint64_t result = s[0] + s[3];
+
+	const uint64_t t = s[1] << 17;
+
+	s[2] ^= s[0];
+	s[3] ^= s[1];
+	s[1] ^= s[2];
+	s[0] ^= s[3];
+
+	s[2] ^= t;
+
+	s[3] = rotl(s[3], 45);
+
+	return (result+0.0)/0xFFFFFFFFFFFFFFFF;
+}
 // proportional roulette wheel selection
 template <typename T>
 void RWS(galgo::Population<T>& x)
@@ -39,6 +61,7 @@ void RWS(galgo::Population<T>& x)
          j++;
       }
       // selecting element
+      
       x.select(j - 1);
    }
 }
@@ -357,6 +380,7 @@ void SPM(galgo::CHR<T>& chr)
    if (mutrate == 0.0) return;
 
    // looping on chromosome bits
+   // std::cout << "size is" <<  chr->size() << std::endl;
    for (int i = 0; i < chr->size(); ++i) {
       // generating a random probability
       if (galgo::proba(galgo::rng) <= mutrate) {
@@ -366,6 +390,42 @@ void SPM(galgo::CHR<T>& chr)
    }
 }
 
+typedef union {
+   __m256i m;
+   float f[8];
+}myunion;
+
+template <typename T>
+void SPM_simd(std::vector<galgo::CHR<T>>& vec, int start, int end)
+{ 
+   //8 chromosomes need 2 doubles
+   // double rand1 = galgo::proba(galgo::rng);
+   // double rand2 = galgo::proba(galgo::rng);
+   
+   for (int i = start; i < end; i = i + 8) {
+      std::vector<int> bits;
+      __m256i num[4];
+      for(int j = i; j < i+8; j++) {
+         bits.push_back(vec[j]->getbits());
+      }
+      for(int j = 0; j < 4; j++) {
+         myunion rand_num;
+         for (int m = 0; m < 8; m++) {
+            rand_num.f[m] = galgo::proba(galgo::rng);
+         }
+         num[j] = rand_num.m;
+      }
+      __m256i chr = _mm256_loadu_si256((__m256i*)&bits[0]);
+      num[0] = _mm256_and_si256(num[0], num[1]);
+      num[2] = _mm256_and_si256(num[2], num[3]);
+      num[0] = _mm256_and_si256(num[0], num[2]);
+      chr = _mm256_xor_si256(num[0], chr);
+      for(int j = i; j < i+8; j++) {
+         vec[j]->putbits(*((int*)(&chr) + j - i));
+      }
+      // std::cout << i << std::endl;
+   }
+}
 /*-------------------------------------------------------------------------------------------------*/
 
 // uniform mutation: replacing a chromosome gene by a new one

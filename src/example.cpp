@@ -40,10 +40,10 @@ int main()
    // this value can be modified but has to remain between 1 and 64
 
    // initiliazing genetic algorithm
-   galgo::GeneticAlgorithm<double> ga(MyObjective<double>::Objective,100,50,true,par1,par2);
+   galgo::GeneticAlgorithm<double> ga(MyObjective<double>::Objective,100,100,true,par1,par2);
 
    // setting constraints
-   ga.Constraint = MyConstraint;
+   // ga.Constraint = MyConstraint;
 
    // running genetic algorithm
    ga.run();

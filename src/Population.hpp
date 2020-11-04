@@ -4,7 +4,17 @@
 
 #ifndef POPULATION_HPP
 #define POPULATION_HPP
-
+/**********************************************************************/
+int count_crossover = 0;
+int count_mutation = 0;
+static __inline__ unsigned long long rdtsc(void) {
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+unsigned long long dur_crossover, dur_mutation;
+unsigned long long t0, t1;
+/********************************************************************/
 namespace galgo {
 
 //=================================================================================================
@@ -172,14 +182,26 @@ void Population<T>::recombination()
       newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       newpop[i+1] = std::make_shared<Chromosome<T>>(*ptr);
       // crossing-over mating population to create 2 new chromosomes
+      t0 = rdtsc();
       ptr->CrossOver(*this, newpop[i], newpop[i+1]);
+      t1 = rdtsc();
+      count_crossover++;
+      dur_crossover += t1 - t0;
       // mutating new chromosomes
+      t0= rdtsc();
       ptr->Mutation(newpop[i]);   
       ptr->Mutation(newpop[i+1]);   
+      t1 = rdtsc();
+      count_mutation += 2;
+      dur_mutation += t1 - t0;
       // evaluating new chromosomes
       newpop[i]->evaluate();
       newpop[i+1]->evaluate();
    } 
+   // ptr->Mutation_simd(newpop, ptr->elitpop, nbrcrov);
+   // for (int i = ptr->elitpop; i < nbrcrov; i++) {
+   //    newpop[i]->evaluate();
+   // }
 }
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -195,7 +217,11 @@ void Population<T>::completion()
       // selecting chromosome randomly from mating population
       newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
       // mutating chromosome
+      t0 = rdtsc();
       ptr->Mutation(newpop[i]);
+      t1 = rdtsc();
+      count_mutation += 1;
+      dur_mutation += t1 - t0;
       // evaluating chromosome
       newpop[i]->evaluate();
    }
