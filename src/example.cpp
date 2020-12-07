@@ -34,8 +34,8 @@ int main()
 {
    // initializing parameters lower and upper bounds
    // an initial value can be added inside the initializer list after the upper bound
-   galgo::Parameter<double> par1({0.0,1.0});
-   galgo::Parameter<double> par2({0.0,13.0});
+   galgo::Parameter<float,32> par1({0.0,1.0});
+   galgo::Parameter<float,32> par2({0.0,13.0});
    // here both parameter will be encoded using 16 bits the default value inside the template declaration
    // this value can be modified but has to remain between 1 and 64
 

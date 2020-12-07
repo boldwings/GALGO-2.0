@@ -143,7 +143,7 @@ void Population<T>::evolution()
    // initializing mating population index
    matidx = 0;
    // selecting mating population
-   ptr->Selection(*this);
+   ptr->Selection(*this); 
    // applying elitism if required
    this->elitism(); 
    // crossing-over mating population
@@ -327,8 +327,10 @@ inline void Population<T>::select(int pos)
       throw std::invalid_argument("Error: in galgo::Population<T>::select(int), exceeding mating population memory.");
    }
    #endif
-
+   // std::cout << "indexing is " << matidx <<std::endl;
    matpop[matidx] = curpop[pos];
+   
+   // std::cout << "after assignment" <<std::endl;
    matidx++;
 }
 
@@ -342,29 +344,29 @@ typedef union {
 template <typename T>
 void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end) 
 {  
-   for (int i = start; i < end; i = i + 8) {
-      std::vector<float> x;
-      std::vector<float> y;
-      for (int j = i; j < i + 8; j++) {
-         const auto &p1 = ptr->param[0];
-         const auto &p2 = ptr->param[1];
-         // decoding chromosome: converting chromosome string into a real value
-         std::string crr_s = pop[j]->getchr();
-         x.push_back(p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
-         y.push_back(p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+   const auto &p1 = ptr->param[0];
+   const auto &p2 = ptr->param[1];
+   std::vector<T> x;
+   std::vector<T> y;
+   #ifdef _OPENMP 
+   #pragma omp parallel for num_threads(MAX_THREADS) schedule(static, 1)
+   #endif
+   for (int i = start; i < end; i++) {
+      std::string crr_s = pop[i]->getchr();
+      x.emplace_back(p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
+      y.emplace_back(p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+   }
+   int i;
+   for (i = 0; i + 24 < x.size(); i += 24) {
+      T output[24];
+      ptr->ObjectiveSIMD(x.data() + i, y.data() + i, output);
+      for (int j = start + i; j < start + i + 24; j++) {
+         pop[j]->fitness = output[j - start - i];
       }
-      __m256 x_vector = _mm256_loadu_ps(x.data());
-      __m256 y_vector = _mm256_loadu_ps(y.data());
-      __m256 v[2];
-      v[0] = x_vector;
-      v[1] = y_vector;
-      __m256 result = ptr->Objective(x_vector, y_vector);
+   }
+   for (int j = i; j < x.size() ; j++) {
+      pop[j]->fitness = ptr->Objective(x[j], y[j]);
 
-      eval_union r;
-      r.v = result;
-      for (int j = i; j < i + 8; j++) {
-         pop[j]->fitness = r.a[j - i];
-      }
    }
 }
 

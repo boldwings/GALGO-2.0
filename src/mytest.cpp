@@ -14,56 +14,72 @@ int count = 0;
 unsigned long long dur;
 // unsigned long long t0, t1;
 int num = 1;
+float constant1 = 1.0;
+float constant100 = 100.0;
+float constant_1 = -1.0;
 // objective class example
 template <typename T>
 class MyObjective
 {
 public:
-   // objective function example : Rosenbrock function
-   // minimizing f(x,y) = (1 - x)^2 + 100 * (y - x^2)^2
-   // static std::vector<T> Objective(const std::vector<T>& x)
-   // {
-   //    count++;
-   //    t0 = rdtsc();
-   //    // T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-   //    T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
-   //    // T obj2 = -(pow(1-x[0],2)+ pow(x[1]-1,2));
-   //    // T obj3 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-   //    // T obj4 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-   //    // T obj5 = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-   //    t1 = rdtsc();
-   //    dur += t1 - t0;
-   //    // return {obj1, obj2, obj3, obj4, obj5};
-   //    return {obj};
-   // }
-
-   static __m256 Objective(__m256 x_vector, __m256 y_vector)
+   // theoratical peak 32 Flops/s
+   static void ObjectiveSIMD(T *x, T *y, T *output)
    {
       count++;
       t0 = rdtsc();
-      // __m256 x_vector = v[0];
-      // __m256 y_vector = v[1];
-      float c1 = -45.0;
-      float c2 = 15.0;
-      __m256 c1_vector = _mm256_broadcast_ss(&c1);
-      __m256 c2_vector = _mm256_broadcast_ss(&c2);
+      // use 14 simd registers
+      __m256 x1 = _mm256_loadu_ps(x);
+      __m256 y1 = _mm256_loadu_ps(y);
+      __m256 x2 = _mm256_loadu_ps(x + 8);
+      __m256 y2 = _mm256_loadu_ps(y + 8);
+      __m256 x3 = _mm256_loadu_ps(x + 16);
+      __m256 y3 = _mm256_loadu_ps(y + 16);
 
-      __m256 sum1 = _mm256_add_ps(x_vector, y_vector);  // x + y
-      __m256 sqrt1 = _mm256_sqrt_ps(sum1);              // sqrt(x + y)
-      __m256 mul_1 = _mm256_mul_ps(c1_vector, sqrt1);
+      __m256 result1 = _mm256_loadu_ps(output);
+      __m256 result2 = _mm256_loadu_ps(output + 8);
+      __m256 result3 = _mm256_loadu_ps(output + 16);
 
-      __m256 sq_x = _mm256_mul_ps(x_vector, x_vector);  // x^2
-      __m256 sq_y = _mm256_mul_ps(y_vector, y_vector);  // y^2
-      __m256 sq_xy = _mm256_add_ps(sq_x, sq_y);                       // x^2 + y^2
-      __m256 div_xy = _mm256_div_ps(sum1, sq_xy);       // (x + y) / (x^2 + y^2)
-      __m256 mul_2 = _mm256_mul_ps(c2_vector, div_xy);  // 15 * (x + y) / (x^2 + y^2)
-   
-      __m256 result = _mm256_mul_ps(mul_1, mul_2);
-      // T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
+      /* const 1, 100 */
+      __m256 c1 = _mm256_broadcast_ss(&constant1);
+      __m256 c2 = _mm256_broadcast_ss(&constant100);
+      __m256 c3 = _mm256_broadcast_ss(&constant_1);
+
+      /* (y -x^2)^2 */
+      __m256 z1 = _mm256_mul_ps(x1, x1);
+      y1 = _mm256_sub_ps(y1, z1);
+      y1 = _mm256_mul_ps(y1, y1);
+      __m256 z2 = _mm256_mul_ps(x2, x2);
+      y2 = _mm256_sub_ps(y2, z2);
+      y2 = _mm256_mul_ps(y2, y2);
+      __m256 z3 = _mm256_mul_ps(x3, x3);
+      y3 = _mm256_sub_ps(y3, z3);
+      y3 = _mm256_mul_ps(y3, y3);
+
+      /* (1 - x) */
+      x1 = _mm256_sub_ps(c1, x1);
+      x2 = _mm256_sub_ps(c1, x2);
+      x3 = _mm256_sub_ps(c1, x3);
+
+      result1 = _mm256_fmadd_ps(x1, x1, result1);
+      result1 = _mm256_fmadd_ps(c2, y1, result1);
+      result1 = _mm256_mul_ps(result1, c3);
+      result2 = _mm256_fmadd_ps(x2, x2, result2);
+      result2 = _mm256_fmadd_ps(c2, y2, result2);
+      result2 = _mm256_mul_ps(result2, c3);
+      result3 = _mm256_fmadd_ps(x3, x3, result3);
+      result3 = _mm256_fmadd_ps(c2, y3, result3);
+      result3 = _mm256_mul_ps(result3, c3);
+
+      _mm256_store_ps(output, result1);
+      _mm256_store_ps(output + 8, result2);
+      _mm256_store_ps(output +16, result3);
+
       t1 = rdtsc();
       dur += t1 - t0;
-      // return {obj1, obj2, obj3, obj4, obj5};
-      return result;
+   }
+
+   static T Objective(T x, T y) {
+      return -1*(pow(1 - x, 2) + 100 * pow(y - x*x, 2));
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
 };
@@ -93,7 +109,7 @@ int main(int argc, char** argv)
    // initiliazing genetic algorithm
    // num = atoi(argv[1]);
    std::cout << "num is " << num << std::endl;
-   galgo::GeneticAlgorithm<float> ga(MyObjective::Objective,2000,100,true,par1,par2);
+   galgo::GeneticAlgorithm<float> ga(MyObjective<float>::ObjectiveSIMD, MyObjective<float>::Objective, 2400,10,true,par1,par2);
 
    // setting constraints
    // ga.Constraint = MyConstraint;

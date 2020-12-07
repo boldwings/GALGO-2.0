@@ -45,9 +45,12 @@ void RWS(galgo::Population<T>& x)
    // computing fitness sum
    T fitsum = x.getSumFitness();
 
+   // std::cout << "fitness sum is "<< fitsum <<std::endl;
+
    // selecting mating population
    for (int i = 0, end = x.matsize(); i < end; ++i) {
       // generating a random fitness sum in [0,fitsum)
+      // std::cout << "selecting count: " << i<<std::endl;
       T fsum = galgo::uniform<T>(0.0, fitsum);
 
       int j = 0;
@@ -61,7 +64,8 @@ void RWS(galgo::Population<T>& x)
          j++;
       }
       // selecting element
-      
+      // std::cout << "size of the pop: " << x.popsize() <<std::endl;
+      // std::cout << "value of j is" << j <<std::endl;
       x.select(j - 1);
    }
 }
