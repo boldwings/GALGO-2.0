@@ -13,7 +13,8 @@ public:
    // minimizing f(x,y) = (1 - x)^2 + 100 * (y - x^2)^2
    static std::vector<T> Objective(const std::vector<T>& x)
    {
-      T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+      // T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+      T obj = -45.0*sqrt(x[0]+x[1])*sin((15.0*(x[0]+x[1]))/(x[0]*x[0]+x[1]*x[1]));
       return {obj};
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
@@ -40,10 +41,10 @@ int main()
    // this value can be modified but has to remain between 1 and 64
 
    // initiliazing genetic algorithm
-   galgo::GeneticAlgorithm<double> ga(MyObjective<double>::Objective,100,50,true,par1,par2);
+   galgo::GeneticAlgorithm<double> ga(MyObjective<double>::Objective,100,100,true,par1,par2);
 
    // setting constraints
-   ga.Constraint = MyConstraint;
+   // ga.Constraint = MyConstraint;
 
    // running genetic algorithm
    ga.run();

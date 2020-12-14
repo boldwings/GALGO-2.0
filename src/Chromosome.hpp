@@ -4,7 +4,8 @@
 
 #ifndef CHROMOSOME_HPP
 #define CHROMOSOME_HPP
-
+#include <string>
+#include <bitset>
 namespace galgo {
 
 //=================================================================================================
@@ -64,13 +65,18 @@ public:
    // return upper bound(s)
    const std::vector<T>& upperBound() const;
 
+   int getbits();
+   void putbits(int bits);
+
 private:
    std::vector<T> param;                     // estimated parameter(s)
    std::vector<T> result;                    // chromosome objective function(s) result
-   std::string chr;                          // string of bits representing chromosome
    const GeneticAlgorithm<T>* ptr = nullptr; // pointer to genetic algorithm
 public:
    T fitness;                                // chromosome fitness, objective function(s) result that can be modified (adapted to constraint(s), set to positive values, etc...)
+   std::string chr;                          // string of bits representing chromosome
+   std::int64_t chr_int;
+
 private:
    T total;                                  // total sum of objective function(s) result
    int chrsize;                              // chromosome size (in number of bits)
@@ -240,6 +246,37 @@ inline void Chromosome<T>::setBit(char bit, int pos)
    std::cout << chr << "\n";
 }
 
+template <typename T>
+inline int Chromosome<T>::getbits()
+{
+   int bits = std::bitset<32>(chr.c_str()).to_ulong();
+   return bits;
+}
+
+template <typename T>
+__m256i getbits_simd(std::vector<galgo::CHR<T>>& vec, int id)
+{  
+   int bits[8];
+   for(int i = 0; i < 8; i++) {
+      bits[i] = std::bitset<32>(vec[id+i]->chr.c_str()).to_ulong();
+   }
+   return *((__m256i*)bits);
+}
+
+template <typename T>
+inline void Chromosome<T>::putbits(int bits)
+{
+   chr = std::bitset<32>(bits).to_string();
+}
+
+template <typename T>
+void putbits_simd(std::vector<galgo::CHR<T>>& vec, int id, __m256i bits)
+{  
+   // int nums[8] = bits; 
+   for(int i = 0; i < 8; i++) {
+      vec[id+i]->chr = std::bitset<32>(((int*)&bits)[i]).to_string();
+   }   
+}
 /*-------------------------------------------------------------------------------------------------*/
       
 // flip an existing chromosome bit

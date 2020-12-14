@@ -11,15 +11,14 @@
 //=================================================================================================
 
 // SELECTION METHODS
-unsigned long long t2, t3;
-unsigned long long dur_mutation = 0;
+
 /*-------------------------------------------------------------------------------------------------*/
 static inline uint64_t rotl(const uint64_t x, int k) {
 	return (x << k) | (x >> (64 - k));
 }
-extern unsigned long long rdtsc();
+
 extern int count_mutation;
-static __m256i s0, s1, s2, s3, ss0, ss1, ss2, ss3, res, s_result,ss_result;
+static __m256i s0, s1, s2, s3, ss0, ss1, ss2, ss3;
 
 __m256i next_256p() {
 	// const __m256i result1;
@@ -42,11 +41,11 @@ __m256i next_256p() {
    __m256i ss3_2 = _mm256_srli_epi64(ss3, 19);
    s3 = _mm256_or_si256(s3_1, s3_2);
    ss3 = _mm256_or_si256(ss3_1, ss3_2);
-   s_result = _mm256_add_epi64(s0, s3);
-   ss_result = _mm256_add_epi64(ss0, ss3);
-   res = _mm256_and_si256(s_result, ss_result);
+   __m256i s_result = _mm256_add_epi64(s0, s3);
+   __m256i ss_result = _mm256_add_epi64(ss0, ss3);
 
-	return res;
+
+	return _mm256_and_si256(s_result, ss_result);
 }
 
 // typedef union {
@@ -69,39 +68,17 @@ void SPM_simd(std::vector<galgo::CHR<T>>& vec, int start, int end)
    // double rand1 = galgo::proba(galgo::rng);
    // double rand2 = galgo::proba(galgo::rng);
    // fully utilize 3 function units
-   __m256i bits, bits2, bits3, bits4;
-   #pragma omp parallel for num_threads(28) reduction (+:count_mutation) schedule (dynamic)
-   for (int i = start; i < end; i = i + 8*4) {
-      __m256i num1, num2, num3, num4, num5, num6, num7, num8;
+   __m256i bits;
+   #pragma omp parallel for 
+   for (int i = start; i < end; i = i + 8) {
+      __m256i num1, num2;
       bits = getbits_simd(vec, i);
-      bits2 = getbits_simd(vec, i + 8);
-      bits3 = getbits_simd(vec, i + 16);
-      bits4 = getbits_simd(vec, i + 24);
-      t2 = rdtsc();
       num1 = next_256p();
       num2 = next_256p();
-      num3 = next_256p();
-      num4 = next_256p();
-      num5 = next_256p();
-      num6 = next_256p();
-      num7 = next_256p();
-      num8 = next_256p();      
       num1 = _mm256_and_si256(num1, num2);
-      num3 = _mm256_and_si256(num3, num4);
-      num5 = _mm256_and_si256(num5, num6);
-      num7 = _mm256_and_si256(num7, num8);
       bits = _mm256_xor_si256(num1, bits);
-      // std::cout << "bits is: " << *((int*)&bits) << " num1 is " << *((int*)&num1) << std::endl;
-      bits2 = _mm256_xor_si256(num3, bits);
-      bits3 = _mm256_xor_si256(num5, bits);
-      bits4 = _mm256_xor_si256(num7, bits);
-      t3 = rdtsc();
-      dur_mutation += t3 - t2;
       putbits_simd(vec, i, bits);
-      putbits_simd(vec, i+8, bits2);
-      putbits_simd(vec, i+16, bits3);
-      putbits_simd(vec, i+24, bits4);
-      count_mutation += 8*4;
+      count_mutation += 8;
       // std::cout << i << std::endl;
    }
 }
@@ -113,17 +90,16 @@ void RWS(galgo::Population<T>& x)
    x.adjustFitness();
    // computing fitness sum
    T fitsum = x.getSumFitness();
-   // std::cout << "fitness sum is " << fitsum << std::endl;
+
    // selecting mating population
    for (int i = 0, end = x.matsize(); i < end; ++i) {
       // generating a random fitness sum in [0,fitsum)
       T fsum = galgo::uniform<T>(0.0, fitsum);
-      // std::cout << "fsum and fitsum is " << fsum << " " << fitsum << std::endl;
+
       int j = 0;
-      while (fsum > 0.0) {
+      while (fsum >= 0.0) {
          #ifndef NDEBUG
          if (j == x.popsize()) {
-            // std::cout << "current fsum is " << fsum << "popsize is " << x.popsize() << std::endl;
             throw std::invalid_argument("Error: in RWS(galgo::Population<T>&) index j cannot be equal to population size.");
          }
          #endif

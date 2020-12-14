@@ -4,7 +4,18 @@
 
 #ifndef POPULATION_HPP
 #define POPULATION_HPP
-
+// #define _OPENMP
+/**********************************************************************/
+int count_crossover = 0;
+int count_mutation = 0;
+__inline__ unsigned long long rdtsc(void) {
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+unsigned long long dur_crossover;
+unsigned long long t0, t1;
+/********************************************************************/
 namespace galgo {
 
 //=================================================================================================
@@ -56,6 +67,7 @@ public:
    int nbgen() const;
    // return selection pressure
    T SP() const; 
+   bool isFirstGen;
 
 private:
    std::vector<CHR<T>> curpop;               // current population
@@ -84,6 +96,7 @@ Population<T>::Population(const GeneticAlgorithm<T>& ga)
 {
    ptr = &ga;   
    nbrcrov = floor(ga.covrate * (ga.popsize - ga.elitpop));
+   isFirstGen = true;
    // adjusting nbrcrov (must be an even number)
    if (nbrcrov % 2 != 0) nbrcrov -= 1;
    // for convenience, we add elitpop to nbrcrov
@@ -108,9 +121,9 @@ void Population<T>::creation()
       start++;
    }
    // getting the rest
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
+   // #ifdef _OPENMP 
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+   // #endif
    for (int i = start; i < ptr->popsize; ++i) {
       curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[i]->create();
@@ -164,22 +177,43 @@ template <typename T>
 void Population<T>::recombination()
 {
    // creating a new population by cross-over
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
+   // #ifdef _OPENMP 
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+   // #endif
+   // #pragma omp parallel for num_threads(16)
    for (int i = ptr->elitpop; i < nbrcrov; i = i + 2) {      
       // initializing 2 new chromosome
       newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       newpop[i+1] = std::make_shared<Chromosome<T>>(*ptr);
       // crossing-over mating population to create 2 new chromosomes
+      t0 = rdtsc();
       ptr->CrossOver(*this, newpop[i], newpop[i+1]);
+      t1 = rdtsc();
+      count_crossover++;
+      dur_crossover += t1 - t0;
       // mutating new chromosomes
-      ptr->Mutation(newpop[i]);   
-      ptr->Mutation(newpop[i+1]);   
-      // evaluating new chromosomes
-      newpop[i]->evaluate();
-      newpop[i+1]->evaluate();
+      // t0= rdtsc();
+      // ptr->Mutation(newpop[i]);   
+      // ptr->Mutation(newpop[i+1]);   
+      // t1 = rdtsc();
+      // count_mutation += 2;
+      // dur_mutation += t1 - t0;
+      // // evaluating new chromosomes
+      // newpop[i]->evaluate();
+      // newpop[i+1]->evaluate();
    } 
+   for (int i = nbrcrov; i < ptr->popsize; ++i) {
+      // selecting chromosome randomly from mating population
+      newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
+   }
+   // t0 = rdtsc();
+   ptr->Mutation_simd(newpop, ptr->elitpop, ptr->popsize - 32);
+   // t1 = rdtsc();
+   // dur_mutation += t1 - t0;
+   // #pragma omp parallel for num_threads(20)
+   for (int i = ptr->elitpop; i < ptr->popsize - 32; i++) {
+      newpop[i]->evaluate();
+   }
 }
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -188,17 +222,16 @@ void Population<T>::recombination()
 template <typename T>
 void Population<T>::completion()
 {
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
-   for (int i = nbrcrov; i < ptr->popsize; ++i) {
-      // selecting chromosome randomly from mating population
-      newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
-      // mutating chromosome
-      ptr->Mutation(newpop[i]);
-      // evaluating chromosome
-      newpop[i]->evaluate();
-   }
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+
+   // t0 = rdtsc();
+   // ptr->Mutation_simd(newpop, nbrcrov, ptr->popsize-32);
+   // t1 = rdtsc();
+   // dur_mutation += t1 - t0;
+   // for (int i = nbrcrov; i < ptr->popsize; i++) {
+   //    newpop[i]->evaluate();
+   // }
+
 }
 
 /*-------------------------------------------------------------------------------------------------*/
