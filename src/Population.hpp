@@ -120,7 +120,11 @@ void Population<T>::creation()
    if (!ptr->initialSet.empty()) {
       curpop[0] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[0]->initialize();
+      // t0 = rdtsc();
       // curpop[0]->evaluate();
+      // t1 = rdtsc();
+      // dur_eval_orig += (t1 - t0);
+      // count_eval_orig ++;
       start++;
    }
    // getting the rest
@@ -130,16 +134,20 @@ void Population<T>::creation()
    for (int i = start; i < ptr->popsize; ++i) {
       curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[i]->create();
+      // t0 = rdtsc();
       // curpop[i]->evaluate();
+      // t1 = rdtsc();
+      // dur_eval_orig += (t1 - t0);
+      // count_eval_orig ++;
    }
 
-   t0 = rdtsc();
-   for (int i = 0; i < ptr->popsize; ++i) {
-      curpop[i]->evaluate();
-   }
-   t1 = rdtsc();
-   dur_eval_orig += (t1 - t0);
-   count_eval_orig += ptr->popsize;
+   // t0 = rdtsc();
+   // for (int i = 0; i < ptr->popsize; ++i) {
+   //    curpop[i]->evaluate();
+   // }
+   // t1 = rdtsc();
+   // dur_eval_orig += (t1 - t0);
+   // count_eval_orig += ptr->popsize;
 
 
    t0 = rdtsc();
@@ -148,8 +156,8 @@ void Population<T>::creation()
    dur_eval = (t1 - t0);
    count_eval+= ptr->popsize;
 
-   std::cout<< "count_eval_orig: " << count_eval_orig<<std::endl;
-   std::cout<< "count_eval: " << count_eval<<std::endl;
+   // std::cout<< "count_eval_orig: " << count_eval_orig<<std::endl;
+   // std::cout<< "count_eval: " << count_eval<<std::endl;
    
    // updating population
    this->updating();
@@ -220,12 +228,12 @@ void Population<T>::recombination()
       count_mutation += 2;
       dur_mutation += t1 - t0;
       // evaluating new chromosomes
-      t0= rdtsc();
-      newpop[i]->evaluate();
-      newpop[i+1]->evaluate();
-      t1 = rdtsc();
-      dur_eval_orig += (t1 - t0);
-      count_eval_orig += 2;
+      // t0= rdtsc();
+      // newpop[i]->evaluate();
+      // newpop[i+1]->evaluate();
+      // t1 = rdtsc();
+      // dur_eval_orig += (t1 - t0);
+      // count_eval_orig += 2;
    } 
    t0= rdtsc();
    calFitness_simd(newpop, ptr->elitpop, nbrcrov);
@@ -258,11 +266,11 @@ void Population<T>::completion()
       count_mutation += 1;
       dur_mutation += (t1 - t0);
       // evaluating chromosome
-      t0 = rdtsc();
-      newpop[i]->evaluate();
-      t1 = rdtsc();
-      count_eval_orig ++;
-      dur_eval_orig += (t1 - t0);
+      // t0 = rdtsc();
+      // newpop[i]->evaluate();
+      // t1 = rdtsc();
+      // count_eval_orig ++;
+      // dur_eval_orig += (t1 - t0);
    }
    t0 = rdtsc();
    calFitness_simd(newpop, nbrcrov, ptr->popsize);
@@ -389,17 +397,18 @@ void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end
    std::vector<T> x(end - start);
    std::vector<T> y(end - start);
    #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(16)
+   #pragma omp parallel for num_threads(28) 
    #endif
    for (int i = start; i < end; i++) {
       std::string crr_s = pop[i]->getchr();
       x[i - start] = (p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
       y[i - start]= (p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
    }
-   #ifdef _OPENMP
-   #pragma omp barrier
-   #endif
-   int i;
+   // #ifdef _OPENMP
+   // #pragma omp barrier
+   // #endif
+   int i = 0;
+   // #pragma omp parallel for num_threads(4) schedule(dynamic)
    for (i = 0; i  < x.size() - 24; i += 24) {
       T output[24] = {0};
       ptr->ObjectiveSIMD(x.data() + i, y.data() + i, output);
@@ -410,7 +419,6 @@ void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end
 
    for (int j = i; j < x.size() ; j++) {
       pop[j]->fitness = ptr->Objective(x[j], y[j]);
-
    }
 }
 

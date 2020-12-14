@@ -19,7 +19,7 @@ float constant100 = 100.0;
 float constant_1 = -1.0;
 int count_peak = 0;
 unsigned long long dur_peak =0;
-unsigned long long dur_orig_obj;
+unsigned long long dur_orig_obj, t2, t3;
 
 // objective class example
 template <typename T>
@@ -29,8 +29,8 @@ public:
    // theoratical peak 32 Flops/cycle
    static void ObjectiveSIMD(T *x, T *y, T *output)
    {
-      count_peak++;
-      t0 = rdtsc();
+      // count_peak++;
+      // t2 = rdtsc();
       // use 14 simd registers
       __m256 x1 = _mm256_loadu_ps(x);
       __m256 y1 = _mm256_loadu_ps(y);
@@ -79,8 +79,8 @@ public:
       _mm256_store_ps(output + 8, result2);
       _mm256_store_ps(output +16, result3);
 
-      t1 = rdtsc();
-      dur_peak += t1 - t0;
+      // t3 = rdtsc();
+      // dur_peak += t3 - t2;
    }
 
    static T Objective(T x, T y) {
@@ -89,10 +89,10 @@ public:
 
    static std::vector<T> ObjectiveOrig(const std::vector<T>& x)
    { 
-      t0 = rdtsc();
+      // t0 = rdtsc();
       T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      t1 = rdtsc();
-      dur_orig_obj = (t1 - t0);
+      // t1 = rdtsc();
+      // dur_orig_obj = (t1 - t0);
       return {obj};
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
