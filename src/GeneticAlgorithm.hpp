@@ -25,6 +25,11 @@ class GeneticAlgorithm
    template <typename K>
    using Func = K (*)(K, K);
 
+   template <typename K>
+   using FuncOrig = std::vector<K> (*)(const std::vector<K> &);
+
+
+
 private:
    Population<T> pop;             // population of chromosomes
    std::vector<PAR<T>> param;     // parameter(s) 
@@ -37,6 +42,7 @@ public:
    // objective function pointer
    FuncSIMD<T> ObjectiveSIMD; 
    Func<T> Objective;
+   FuncOrig<T> ObjectiveOrig;
    // selection method initialized to roulette wheel selection                                   
    void (*Selection)(Population<T>&) = RWS;  
    // cross-over method initialized to 1-point cross-over                                
@@ -63,7 +69,7 @@ public:
    bool output;   // control if results must be outputted
    // constructor
    template <int...N>
-   GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective,  int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
+   GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective, FuncOrig<T> objectiveOrig, int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
    // run genetic algorithm
    void run();
    // return best chromosome 
@@ -94,11 +100,12 @@ private:
    
 // constructor
 template <typename T> template <int...N>
-GeneticAlgorithm<T>::GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective, int popsize, int nbgen,
-                                      bool output, const Parameter<T,N>&...args)
+GeneticAlgorithm<T>::GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective, FuncOrig<T> objectiveOrig, 
+                                      int popsize, int nbgen, bool output, const Parameter<T,N>&...args)
 {
    this->ObjectiveSIMD = objectiveSIMD;
    this->Objective = objective;
+   this->ObjectiveOrig = objectiveOrig;
    // getting total number of bits per chromosome
    this->nbbit = sum(N...);
    this->nbgen = nbgen;
@@ -210,8 +217,8 @@ void GeneticAlgorithm<T>::run()
    // starting population evolution
    for (nogen = 1; nogen <= nbgen; ++nogen) {
       // evolving population
-      std::cout << "----------------------"<<std::endl;
-      std::cout << "Evolution count: " << nogen <<std::endl;
+      // std::cout << "----------------------"<<std::endl;
+      // std::cout << "Evolution count: " << nogen <<std::endl;
       pop.evolution();
       // getting best current result
       bestResult = pop(0)->getTotal();

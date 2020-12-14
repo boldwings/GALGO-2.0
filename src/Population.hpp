@@ -8,13 +8,16 @@
 /**********************************************************************/
 int count_crossover = 0;
 int count_mutation = 0;
+int count_eval = 0;
+int count_eval_orig = 0;
 static __inline__ unsigned long long rdtsc(void) {
   unsigned hi, lo;
   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
-unsigned long long dur_crossover, dur_mutation;
+unsigned long long dur_crossover, dur_mutation, dur_eval, dur_eval_orig;
 unsigned long long t0, t1;
+unsigned long long dur;
 /********************************************************************/
 namespace galgo {
 
@@ -121,15 +124,33 @@ void Population<T>::creation()
       start++;
    }
    // getting the rest
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
+   // #ifdef _OPENMP 
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+   // #endif
    for (int i = start; i < ptr->popsize; ++i) {
       curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       curpop[i]->create();
       // curpop[i]->evaluate();
    }
+
+   t0 = rdtsc();
+   for (int i = 0; i < ptr->popsize; ++i) {
+      curpop[i]->evaluate();
+   }
+   t1 = rdtsc();
+   dur_eval_orig += (t1 - t0);
+   count_eval_orig += ptr->popsize;
+
+
+   t0 = rdtsc();
    calFitness_simd(curpop, 0, ptr->popsize);
+   t1 = rdtsc();
+   dur_eval = (t1 - t0);
+   count_eval+= ptr->popsize;
+
+   std::cout<< "count_eval_orig: " << count_eval_orig<<std::endl;
+   std::cout<< "count_eval: " << count_eval<<std::endl;
+   
    // updating population
    this->updating();
 }
@@ -178,9 +199,9 @@ template <typename T>
 void Population<T>::recombination()
 {
    // creating a new population by cross-over
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
+   // #ifdef _OPENMP 
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+   // #endif
    for (int i = ptr->elitpop; i < nbrcrov; i = i + 2) {      
       // initializing 2 new chromosome
       newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
@@ -199,10 +220,19 @@ void Population<T>::recombination()
       count_mutation += 2;
       dur_mutation += t1 - t0;
       // evaluating new chromosomes
-      // newpop[i]->evaluate();
-      // newpop[i+1]->evaluate();
+      t0= rdtsc();
+      newpop[i]->evaluate();
+      newpop[i+1]->evaluate();
+      t1 = rdtsc();
+      dur_eval_orig += (t1 - t0);
+      count_eval_orig += 2;
    } 
+   t0= rdtsc();
    calFitness_simd(newpop, ptr->elitpop, nbrcrov);
+   t1 = rdtsc();
+   dur_eval += (t1 - t0);
+   count_eval += (nbrcrov - ptr->elitpop);
+
    // ptr->Mutation_simd(newpop, ptr->elitpop, nbrcrov);
    // for (int i = ptr->elitpop; i < nbrcrov; i++) {
    //    newpop[i]->evaluate();
@@ -215,9 +245,9 @@ void Population<T>::recombination()
 template <typename T>
 void Population<T>::completion()
 {
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
+   // #ifdef _OPENMP 
+   // #pragma omp parallel for num_threads(MAX_THREADS)
+   // #endif
    for (int i = nbrcrov; i < ptr->popsize; ++i) {
       // selecting chromosome randomly from mating population
       newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
@@ -226,11 +256,19 @@ void Population<T>::completion()
       ptr->Mutation(newpop[i]);
       t1 = rdtsc();
       count_mutation += 1;
-      dur_mutation += t1 - t0;
+      dur_mutation += (t1 - t0);
       // evaluating chromosome
-      // newpop[i]->evaluate();
+      t0 = rdtsc();
+      newpop[i]->evaluate();
+      t1 = rdtsc();
+      count_eval_orig ++;
+      dur_eval_orig += (t1 - t0);
    }
+   t0 = rdtsc();
    calFitness_simd(newpop, nbrcrov, ptr->popsize);
+   t1 = rdtsc();
+   count_eval += (ptr->popsize - nbrcrov);
+   dur_eval += (t1 - t0);
 }
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -344,26 +382,32 @@ typedef union {
 template <typename T>
 void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end) 
 {  
+   // count++;
+   // if (start == 0 ) t0 = rdtsc();
    const auto &p1 = ptr->param[0];
    const auto &p2 = ptr->param[1];
-   std::vector<T> x;
-   std::vector<T> y;
+   std::vector<T> x(end - start);
+   std::vector<T> y(end - start);
    #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS) schedule(static, 1)
+   #pragma omp parallel for num_threads(16)
    #endif
    for (int i = start; i < end; i++) {
       std::string crr_s = pop[i]->getchr();
-      x.emplace_back(p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
-      y.emplace_back(p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+      x[i - start] = (p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
+      y[i - start]= (p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
    }
+   #ifdef _OPENMP
+   #pragma omp barrier
+   #endif
    int i;
-   for (i = 0; i + 24 < x.size(); i += 24) {
-      T output[24];
+   for (i = 0; i  < x.size() - 24; i += 24) {
+      T output[24] = {0};
       ptr->ObjectiveSIMD(x.data() + i, y.data() + i, output);
       for (int j = start + i; j < start + i + 24; j++) {
          pop[j]->fitness = output[j - start - i];
       }
    }
+
    for (int j = i; j < x.size() ; j++) {
       pop[j]->fitness = ptr->Objective(x[j], y[j]);
 

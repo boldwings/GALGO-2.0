@@ -5,27 +5,31 @@
 #include "Galgo.hpp"
 #include <stdlib.h>
 #include <chrono>
-int count = 0;
-// static __inline__ unsigned long long rdtsc(void) {
-//   unsigned hi, lo;
-//   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-//   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-// }
-unsigned long long dur;
+// int count = 0;
+// // static __inline__ unsigned long long rdtsc(void) {
+// //   unsigned hi, lo;
+// //   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+// //   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+// // }
+// unsigned long long dur;
 // unsigned long long t0, t1;
 int num = 1;
 float constant1 = 1.0;
 float constant100 = 100.0;
 float constant_1 = -1.0;
+int count_peak = 0;
+unsigned long long dur_peak =0;
+unsigned long long dur_orig_obj;
+
 // objective class example
 template <typename T>
 class MyObjective
 {
 public:
-   // theoratical peak 32 Flops/s
+   // theoratical peak 32 Flops/cycle
    static void ObjectiveSIMD(T *x, T *y, T *output)
    {
-      count++;
+      count_peak++;
       t0 = rdtsc();
       // use 14 simd registers
       __m256 x1 = _mm256_loadu_ps(x);
@@ -62,12 +66,13 @@ public:
 
       result1 = _mm256_fmadd_ps(x1, x1, result1);
       result1 = _mm256_fmadd_ps(c2, y1, result1);
-      result1 = _mm256_mul_ps(result1, c3);
       result2 = _mm256_fmadd_ps(x2, x2, result2);
       result2 = _mm256_fmadd_ps(c2, y2, result2);
-      result2 = _mm256_mul_ps(result2, c3);
       result3 = _mm256_fmadd_ps(x3, x3, result3);
       result3 = _mm256_fmadd_ps(c2, y3, result3);
+      
+      result1 = _mm256_mul_ps(result1, c3);
+      result2 = _mm256_mul_ps(result2, c3);
       result3 = _mm256_mul_ps(result3, c3);
 
       _mm256_store_ps(output, result1);
@@ -75,11 +80,20 @@ public:
       _mm256_store_ps(output +16, result3);
 
       t1 = rdtsc();
-      dur += t1 - t0;
+      dur_peak += t1 - t0;
    }
 
    static T Objective(T x, T y) {
       return -1*(pow(1 - x, 2) + 100 * pow(y - x*x, 2));
+   }
+
+   static std::vector<T> ObjectiveOrig(const std::vector<T>& x)
+   { 
+      t0 = rdtsc();
+      T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+      t1 = rdtsc();
+      dur_orig_obj = (t1 - t0);
+      return {obj};
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
 };
@@ -108,8 +122,9 @@ int main(int argc, char** argv)
 
    // initiliazing genetic algorithm
    // num = atoi(argv[1]);
-   std::cout << "num is " << num << std::endl;
-   galgo::GeneticAlgorithm<float> ga(MyObjective<float>::ObjectiveSIMD, MyObjective<float>::Objective, 2400,10,true,par1,par2);
+   // std::cout << "num is " << num << std::endl;
+   galgo::GeneticAlgorithm<float> ga(MyObjective<float>::ObjectiveSIMD, MyObjective<float>::Objective, MyObjective<float>::ObjectiveOrig,
+                                     2000,100,true,par1,par2);
 
    // setting constraints
    // ga.Constraint = MyConstraint;
@@ -117,7 +132,14 @@ int main(int argc, char** argv)
    // running genetic algorithm
    ga.output = 0;
    ga.run();
-   std::cout << "total time and count is: " << dur << " " << count << std::endl;
-   std::cout<<"cross_over dur and count: " << dur_crossover << " " << count_crossover << std::endl;
-   std::cout<<"mutation dur and count: " << dur_mutation << " " << count_mutation << std::endl;
+   std::cout << "Performance peak: " << count_peak*24 * 9 / (float)dur_peak  << std::endl;
+   std::cout << "------------------------------------------" <<std::endl;
+   std::cout << "evaluation original avg:  " << dur_eval_orig / (float) count_eval_orig<<std::endl;
+   std::cout << "evaluation (optimized) avg: " << dur_eval / (float) count_eval<<std::endl;
+   std::cout << "------------------------------------------" <<std::endl;
+   std::cout << "original one chromosome objective dur " << dur_orig_obj << std::endl;
+   std::cout << "SIMD one chromosome objective dur " << dur_peak / (count_peak * 24.0 )<< std::endl;
+
+   // std::cout<<"cross_over dur and count: " << dur_crossover << " " << count_crossover << std::endl;
+   // std::cout<<"mutation dur and count: " << dur_mutation << " " << count_mutation << std::endl;
 }
