@@ -1,0 +1,63 @@
+openmp
+
+population: 127
+
+each iteration is given to a different process, multiple threads are updating the same cacheline, 
+write the chunksize explicitly
+
+get rid of registers (as quickly as possible)
+
+use fma for square operations 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+num is 1
+total time and count is: 21852873 201900
+cross_over dur and count: 45319293 49900
+mutation dur and count: 104184143 199900
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ ./run
+num is 1
+total time and count is: 21758143 201900
+cross_over dur and count: 45682860 49900
+mutation dur and count: 103843760 199900
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ ./run
+num is 1
+total time and count is: 21840008 201900
+cross_over dur and count: 45349178 49900
+mutation dur and count: 103967735 199900
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ make
+g++ -O3 -g -mavx -mavx2 -mfma -std=c++11 -march=native -Wall -I. -o run mytest.cpp
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ ./run
+num is 1
+total time and count is: 22482069 201900
+cross_over dur and count: 45643822 49900
+mutation dur and count: 192840418 199900
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ ./run
+num is 1
+total time and count is: 22578753 201900
+cross_over dur and count: 46001101 49900
+mutation dur and count: 194568185 199900
+pengqilu@ece014:~/private/18645/project/GALGO-2.0/src$ ./run
+num is 1
+total time and count is: 22370591 201900
+cross_over dur and count: 45726206 49900
+mutation dur and count: 193123247 199900
