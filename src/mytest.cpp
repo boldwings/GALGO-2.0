@@ -137,8 +137,10 @@ int main(int argc, char** argv)
 
    // running genetic algorithm
    ga.output = 1;
+   t0 = rdtsc();
    ga.run();
-   std::cout << "total time and count is: " << dur << " " << count << std::endl;
+   t1 = rdtsc();
+   std::cout << "total time and count is: " <<t1 - t0<< std::endl;
    std::cout<<"cross_over dur and count: " << dur_crossover << " " << count_crossover << std::endl;
    std::cout<<"mutation dur and count: " << dur_mutation << " " << count_mutation << std::endl;
 }
