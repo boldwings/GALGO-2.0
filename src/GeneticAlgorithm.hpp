@@ -20,7 +20,15 @@ class GeneticAlgorithm
    friend class Chromosome;
 
    template <typename K>
-   using Func = std::vector<K> (*)(const std::vector<K>&);
+   using FuncSIMD = void (*)(K *, K *, K *);
+
+   template <typename K>
+   using Func = K (*)(K, K);
+
+   template <typename K>
+   using FuncOrig = std::vector<K> (*)(const std::vector<K> &);
+
+
 
 private:
    Population<T> pop;             // population of chromosomes
@@ -32,7 +40,9 @@ private:
 
 public: 
    // objective function pointer
-   Func<T> Objective; 
+   FuncSIMD<T> ObjectiveSIMD; 
+   Func<T> Objective;
+   FuncOrig<T> ObjectiveOrig;
    // selection method initialized to roulette wheel selection                                   
    void (*Selection)(Population<T>&) = RWS;  
    // cross-over method initialized to 1-point cross-over                                
@@ -59,7 +69,7 @@ public:
    bool output;   // control if results must be outputted
    // constructor
    template <int...N>
-   GeneticAlgorithm(Func<T> objective, int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
+   GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective, FuncOrig<T> objectiveOrig, int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
    // run genetic algorithm
    void run();
    // return best chromosome 
@@ -90,9 +100,12 @@ private:
    
 // constructor
 template <typename T> template <int...N>
-GeneticAlgorithm<T>::GeneticAlgorithm(Func<T> objective, int popsize, int nbgen, bool output, const Parameter<T,N>&...args)
+GeneticAlgorithm<T>::GeneticAlgorithm(FuncSIMD<T> objectiveSIMD, Func<T> objective, FuncOrig<T> objectiveOrig, 
+                                      int popsize, int nbgen, bool output, const Parameter<T,N>&...args)
 {
+   this->ObjectiveSIMD = objectiveSIMD;
    this->Objective = objective;
+   this->ObjectiveOrig = objectiveOrig;
    // getting total number of bits per chromosome
    this->nbbit = sum(N...);
    this->nbgen = nbgen;
@@ -204,6 +217,8 @@ void GeneticAlgorithm<T>::run()
    // starting population evolution
    for (nogen = 1; nogen <= nbgen; ++nogen) {
       // evolving population
+      // std::cout << "----------------------"<<std::endl;
+      // std::cout << "Evolution count: " << nogen <<std::endl;
       pop.evolution();
       // getting best current result
       bestResult = pop(0)->getTotal();
@@ -256,7 +271,7 @@ void GeneticAlgorithm<T>::print() const
    std::vector<T> bestParam = pop(0)->getParam();
    std::vector<T> bestResult = pop(0)->getResult();
 
-   if (nogen == 100) {
+   if (nogen % genstep == 0) {
       std::cout << " Generation = " << std::setw(std::to_string(nbgen).size()) << nogen << " |";
       for (int i = 0; i < nbparam; ++i) {
 	      std::cout << " X";

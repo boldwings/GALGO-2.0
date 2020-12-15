@@ -9,3 +9,5 @@ example: example.cpp
 
 clean:
 	rm -f *~ *.o
+
+# -fopenmp

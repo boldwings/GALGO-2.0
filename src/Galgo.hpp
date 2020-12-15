@@ -27,6 +27,7 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <immintrin.h>
 
 /*-------------------------------------------------------------------------------------------------*/
 

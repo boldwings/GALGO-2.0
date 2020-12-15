@@ -67,6 +67,8 @@ public:
 
    int getbits();
    void putbits(int bits);
+   std::string getchr();
+   void putchr(std::string);
 
 private:
    std::vector<T> param;                     // estimated parameter(s)
@@ -156,7 +158,7 @@ inline void Chromosome<T>::evaluate()
       i++;
    } 
    // computing objective result(s) 
-   result = ptr->Objective(param);
+   result = ptr->ObjectiveOrig(param);
    // computing sum of all results (in case there is not only one objective functions)
    total = std::accumulate(result.begin(), result.end(), 0.0);
    // initializing fitness to this total
@@ -276,6 +278,19 @@ void putbits_simd(std::vector<galgo::CHR<T>>& vec, int id, __m256i bits)
    for(int i = 0; i < 8; i++) {
       vec[id+i]->chr = std::bitset<32>(((int*)&bits)[i]).to_string();
    }   
+}
+
+
+template <typename T>
+inline std::string Chromosome<T>::getchr()
+{
+   return chr;
+}
+
+template <typename T>
+inline void Chromosome<T>::putchr(std::string c)
+{
+   chr = c;
 }
 /*-------------------------------------------------------------------------------------------------*/
       

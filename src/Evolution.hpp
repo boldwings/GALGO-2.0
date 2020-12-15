@@ -11,7 +11,7 @@
 //=================================================================================================
 
 // SELECTION METHODS
-unsigned long long t2, t3;
+extern unsigned long long t2, t3;
 unsigned long long dur_mutation = 0;
 /*-------------------------------------------------------------------------------------------------*/
 static inline uint64_t rotl(const uint64_t x, int k) {
@@ -77,7 +77,7 @@ void SPM_simd(std::vector<galgo::CHR<T>>& vec, int start, int end)
       bits2 = getbits_simd(vec, i + 8);
       bits3 = getbits_simd(vec, i + 16);
       bits4 = getbits_simd(vec, i + 24);
-      t2 = rdtsc();
+      // t2 = rdtsc();
       num1 = next_256p();
       num2 = next_256p();
       num3 = next_256p();
@@ -95,8 +95,8 @@ void SPM_simd(std::vector<galgo::CHR<T>>& vec, int start, int end)
       bits2 = _mm256_xor_si256(num3, bits);
       bits3 = _mm256_xor_si256(num5, bits);
       bits4 = _mm256_xor_si256(num7, bits);
-      t3 = rdtsc();
-      dur_mutation += t3 - t2;
+      // t3 = rdtsc();
+      // dur_mutation += t3 - t2;
       putbits_simd(vec, i, bits);
       putbits_simd(vec, i+8, bits2);
       putbits_simd(vec, i+16, bits3);
@@ -117,6 +117,7 @@ void RWS(galgo::Population<T>& x)
    // selecting mating population
    for (int i = 0, end = x.matsize(); i < end; ++i) {
       // generating a random fitness sum in [0,fitsum)
+      // std::cout << "selecting count: " << i<<std::endl;
       T fsum = galgo::uniform<T>(0.0, fitsum);
       // std::cout << "fsum and fitsum is " << fsum << " " << fitsum << std::endl;
       int j = 0;
@@ -459,7 +460,6 @@ void SPM(galgo::CHR<T>& chr)
       }     
    }
 }
-
 
 /*-------------------------------------------------------------------------------------------------*/
 
