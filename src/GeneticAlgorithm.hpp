@@ -279,7 +279,7 @@ void GeneticAlgorithm<T>::print() const
             std::cout << std::to_string(i + 1);
          }
          std::cout << " = "  << std::setw(9) << std::fixed << std::setprecision(precision) << bestParam[i] << " |";
-	   }
+	   } 
       for (unsigned i = 0; i < bestResult.size(); ++i) {
 	      std::cout << " F";
          if (bestResult.size() > 1) {

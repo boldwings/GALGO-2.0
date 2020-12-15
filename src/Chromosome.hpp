@@ -70,14 +70,14 @@ public:
    std::string getchr();
    void putchr(std::string);
 
-private:
+public:
    std::vector<T> param;                     // estimated parameter(s)
    std::vector<T> result;                    // chromosome objective function(s) result
    std::string chr;                          // string of bits representing chromosome
    const GeneticAlgorithm<T>* ptr = nullptr; // pointer to genetic algorithm
 public:
    T fitness;                                // chromosome fitness, objective function(s) result that can be modified (adapted to constraint(s), set to positive values, etc...)
-private:
+public:
    T total;                                  // total sum of objective function(s) result
    int chrsize;                              // chromosome size (in number of bits)
    int numgen;                               // numero of generation

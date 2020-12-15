@@ -115,6 +115,7 @@ Population<T>::Population(const GeneticAlgorithm<T>& ga)
 template <typename T>
 void Population<T>::creation()
 {
+   // std::cout << "------- creation -----------" << std::endl;
    int start = 0;
    // initializing first chromosome
    if (!ptr->initialSet.empty()) {
@@ -141,13 +142,6 @@ void Population<T>::creation()
       // count_eval_orig ++;
    }
 
-   // t0 = rdtsc();
-   // for (int i = 0; i < ptr->popsize; ++i) {
-   //    curpop[i]->evaluate();
-   // }
-   // t1 = rdtsc();
-   // dur_eval_orig += (t1 - t0);
-   // count_eval_orig += ptr->popsize;
 
 
    t0 = rdtsc();
@@ -210,23 +204,20 @@ void Population<T>::recombination()
    // #ifdef _OPENMP 
    // #pragma omp parallel for num_threads(MAX_THREADS)
    // #endif
+   // std::cout << "------- recombination -----------" << std::endl;
    for (int i = ptr->elitpop; i < nbrcrov; i = i + 2) {      
       // initializing 2 new chromosome
       newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
       newpop[i+1] = std::make_shared<Chromosome<T>>(*ptr);
       // crossing-over mating population to create 2 new chromosomes
-      t0 = rdtsc();
       ptr->CrossOver(*this, newpop[i], newpop[i+1]);
-      t1 = rdtsc();
-      count_crossover++;
-      dur_crossover += t1 - t0;
+      // count_crossover++;
+      // dur_crossover += t1 - t0;
       // mutating new chromosomes
-      t0= rdtsc();
       ptr->Mutation(newpop[i]);   
       ptr->Mutation(newpop[i+1]);   
-      t1 = rdtsc();
-      count_mutation += 2;
-      dur_mutation += t1 - t0;
+      // count_mutation += 2;
+      // dur_mutation += t1 - t0;
       // evaluating new chromosomes
       // t0= rdtsc();
       // newpop[i]->evaluate();
@@ -241,10 +232,6 @@ void Population<T>::recombination()
    dur_eval += (t1 - t0);
    count_eval += (nbrcrov - ptr->elitpop);
 
-   // ptr->Mutation_simd(newpop, ptr->elitpop, nbrcrov);
-   // for (int i = ptr->elitpop; i < nbrcrov; i++) {
-   //    newpop[i]->evaluate();
-   // }
 }
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -256,15 +243,16 @@ void Population<T>::completion()
    // #ifdef _OPENMP 
    // #pragma omp parallel for num_threads(MAX_THREADS)
    // #endif
+   // std::cout << "------- completion -----------" << std::endl;
    for (int i = nbrcrov; i < ptr->popsize; ++i) {
       // selecting chromosome randomly from mating population
       newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
       // mutating chromosome
-      t0 = rdtsc();
+      // t0 = rdtsc();
       ptr->Mutation(newpop[i]);
-      t1 = rdtsc();
-      count_mutation += 1;
-      dur_mutation += (t1 - t0);
+      // t1 = rdtsc();
+      // count_mutation += 1;
+      // dur_mutation += (t1 - t0);
       // evaluating chromosome
       // t0 = rdtsc();
       // newpop[i]->evaluate();
@@ -397,28 +385,36 @@ void Population<T>::calFitness_simd(std::vector<CHR<T>>& pop, int start, int end
    std::vector<T> x(end - start);
    std::vector<T> y(end - start);
    #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(28) 
+   #pragma omp parallel for num_threads(32)
    #endif
    for (int i = start; i < end; i++) {
       std::string crr_s = pop[i]->getchr();
-      x[i - start] = (p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
-      y[i - start]= (p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+      T input_x = (p1->decode(crr_s.substr(ptr->idx[0], p1->size())));
+      T input_y = (p2->decode(crr_s.substr(ptr->idx[1], p2->size())));
+      x[i - start] = input_x;
+      y[i - start]= input_y;
+      pop[i]->param[0] = input_x;
+      pop[i]->param[1] = input_y;
    }
-   // #ifdef _OPENMP
-   // #pragma omp barrier
-   // #endif
    int i = 0;
-   // #pragma omp parallel for num_threads(4) schedule(dynamic)
-   for (i = 0; i  < x.size() - 24; i += 24) {
+   // #pragma omp parallel for num_threads(28) schedule(static, 1)
+   for (i = 0; i  <= x.size() - 24; i += 24) {
       T output[24] = {0};
       ptr->ObjectiveSIMD(x.data() + i, y.data() + i, output);
       for (int j = start + i; j < start + i + 24; j++) {
-         pop[j]->fitness = output[j - start - i];
+         T output_z = output[j - start - i];
+         pop[j]->fitness = output_z;
+         pop[j]->total = output_z;
+         pop[j]->result = {output_z};
       }
    }
 
    for (int j = i; j < x.size() ; j++) {
-      pop[j]->fitness = ptr->Objective(x[j], y[j]);
+      T output_z = ptr->Objective(x[j], y[j]);
+      pop[j + start]->fitness = output_z;
+      pop[j + start]->result = {output_z};
+      pop[j + start]->total = output_z;
+
    }
 }
 

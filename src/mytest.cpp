@@ -18,8 +18,8 @@ float constant1 = 1.0;
 float constant100 = 100.0;
 float constant_1 = -1.0;
 int count_peak = 0;
-unsigned long long dur_peak =0;
-unsigned long long dur_orig_obj, t2, t3;
+int count_orig_obj = 0;
+unsigned long long dur_orig_obj, dur_peak, t2, t3;
 
 // objective class example
 template <typename T>
@@ -89,12 +89,13 @@ public:
 
    static std::vector<T> ObjectiveOrig(const std::vector<T>& x)
    { 
-      // t0 = rdtsc();
+      t2 = rdtsc();
       T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      // t1 = rdtsc();
-      // dur_orig_obj = (t1 - t0);
+      t3 = rdtsc();
+      dur_orig_obj += (t3 - t2);
+      count_orig_obj ++;
       return {obj};
-   }
+   };
    // NB: GALGO maximize by default so we will maximize -f(x,y)
 };
 
@@ -130,16 +131,13 @@ int main(int argc, char** argv)
    // ga.Constraint = MyConstraint;
 
    // running genetic algorithm
-   ga.output = 0;
+   ga.output = 1;
    ga.run();
    std::cout << "Performance peak: " << count_peak*24 * 9 / (float)dur_peak  << std::endl;
    std::cout << "------------------------------------------" <<std::endl;
    std::cout << "evaluation original avg:  " << dur_eval_orig / (float) count_eval_orig<<std::endl;
    std::cout << "evaluation (optimized) avg: " << dur_eval / (float) count_eval<<std::endl;
    std::cout << "------------------------------------------" <<std::endl;
-   std::cout << "original one chromosome objective dur " << dur_orig_obj << std::endl;
+   std::cout << "original one chromosome objective dur " << dur_orig_obj / (float) count_orig_obj << std::endl;
    std::cout << "SIMD one chromosome objective dur " << dur_peak / (count_peak * 24.0 )<< std::endl;
-
-   // std::cout<<"cross_over dur and count: " << dur_crossover << " " << count_crossover << std::endl;
-   // std::cout<<"mutation dur and count: " << dur_mutation << " " << count_mutation << std::endl;
 }
