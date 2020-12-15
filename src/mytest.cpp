@@ -12,7 +12,7 @@ int count = 0;
 // //   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 // // }
 unsigned long long dur;
-// unsigned long long t0, t1;
+unsigned long long ts, te;
 int num = 1;
 float constant1 = 1.0;
 float constant100 = 100.0;
@@ -137,10 +137,10 @@ int main(int argc, char** argv)
 
    // running genetic algorithm
    ga.output = 1;
-   t0 = rdtsc();
+   ts = rdtsc();
    ga.run();
-   t1 = rdtsc();
-   std::cout << "total time and count is: " <<t1 - t0<< std::endl;
+   te = rdtsc();
+   std::cout << "total time and count is: " <<te - ts<< std::endl;
    std::cout<<"cross_over dur and count: " << dur_crossover << " " << count_crossover << std::endl;
    std::cout<<"mutation dur and count: " << dur_mutation << " " << count_mutation << std::endl;
 }
